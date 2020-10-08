@@ -1,7 +1,7 @@
 use std::{fmt::Display, str::FromStr};
 
-use druid::{FontDescriptor, FontFamily, widget::{BackgroundBrush, Flex, Label, Painter}};
-use druid::{AppLauncher, Data, Lens, PlatformError, RenderContext, Widget, WidgetExt, WindowDesc};
+use druid::{AppLauncher, Data, FontDescriptor, FontFamily, Lens, PlatformError, RenderContext, Widget, WidgetExt, WindowDesc};
+use druid::widget::{BackgroundBrush, Flex, Label, Painter};
 use structopt::StructOpt;
 
 mod color;
@@ -48,7 +48,11 @@ struct Args {
 
     #[structopt(long, default_value = "under")]
     position: Position,
+
+    #[structopt(long)]
+    font: Option<String>,
 }
+
 
 #[derive(Clone, Data, Lens)]
 struct PickerState {
@@ -113,11 +117,11 @@ fn main() -> Result<(), PlatformError> {
 
 fn build_root(args: Args, sizing: Sizing) -> impl Fn() -> Flex<PickerState> {
     move || {
-        let curr_swatch = swatch()
+        let curr_swatch = swatch(&args)
                         .background(pickers::checkered_bgbrush())
                         .fix_size(sizing.window_width(), sizing.current_swatch_size)
                         .lens(PickerState::current_color);
-        let init_swatch = swatch()
+        let init_swatch = swatch(&args)
                         .background(pickers::checkered_bgbrush())
                         .fix_size(sizing.window_width(), sizing.initial_swatch_size)
                         .lens(PickerState::initial_color);
@@ -141,12 +145,12 @@ fn build_root(args: Args, sizing: Sizing) -> impl Fn() -> Flex<PickerState> {
         }
     }
 }
-fn swatch() -> impl Widget<Color> {
+fn swatch(args: &Args) -> impl Widget<Color> {
     let label = Label::dynamic(|c: &Color, _| c.hex())
         // Druid 0.6.0
         // .with_font("Courier New".to_string());
         // Druid master
-        .with_font(FontDescriptor::new(FontFamily::MONOSPACE));
+        .with_font(druid::FontDescriptor::new(args.font.clone().map_or(FontFamily::MONOSPACE, FontFamily::new_unchecked)));
     let painter = Painter::new(|ctx, data: &Color, _env| {
         let bounds = ctx.size().to_rect();
         ctx.fill(bounds, &data.to_druid())
