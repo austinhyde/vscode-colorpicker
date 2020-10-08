@@ -1,4 +1,4 @@
-use druid::widget::{BackgroundBrush, Container, Flex, Label, Painter};
+use druid::widget::{BackgroundBrush, Flex, Label, Painter};
 use druid::{AppLauncher, Data, Lens, PlatformError, RenderContext, Widget, WidgetExt, WindowDesc};
 use structopt::StructOpt;
 
@@ -79,11 +79,13 @@ fn build_root(sizing: Sizing) -> impl Fn() -> Flex<PickerState> {
             .must_fill_main_axis(true)
             .with_child(
                 swatch()
+                    .background(pickers::checkered_bgbrush())
                     .fix_size(sizing.window_width(), sizing.current_swatch_size)
                     .lens(PickerState::current_color),
             )
             .with_child(
                 swatch()
+                    .background(pickers::checkered_bgbrush())
                     .fix_size(sizing.window_width(), sizing.initial_swatch_size)
                     .lens(PickerState::initial_color),
             )
@@ -99,7 +101,9 @@ fn swatch() -> impl Widget<Color> {
         let bounds = ctx.size().to_rect();
         ctx.fill(bounds, &data.to_druid())
     });
-    Container::new(label.center()).background(BackgroundBrush::Painter(painter))
+    label.center()
+        .background(pickers::checkered_bgbrush())
+        .background(BackgroundBrush::Painter(painter))
 }
 
 fn hsla_picker(sizing: &Sizing) -> impl Widget<Color> {
@@ -108,6 +112,6 @@ fn hsla_picker(sizing: &Sizing) -> impl Widget<Color> {
         .with_spacer(sizing.padding)
         .with_child(HuePicker::new().fix_size(sizing.slider_size, sizing.picker_size))
         .with_spacer(sizing.padding)
-        .with_child(AlphaPicker::new().fix_size(sizing.slider_size, sizing.picker_size))
+        .with_child(AlphaPicker::new().fix_size(sizing.slider_size, sizing.picker_size).background(pickers::checkered_bgbrush()))
         .padding(sizing.padding)
 }

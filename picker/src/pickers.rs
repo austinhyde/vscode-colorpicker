@@ -1,5 +1,5 @@
 use crate::color::Color;
-use druid::{BoxConstraints, Cursor, Env, EventCtx, LayoutCtx, LifeCycleCtx, PaintCtx, Point, Rect, RenderContext, Size, UpdateCtx, Widget};
+use druid::{BoxConstraints, Cursor, Env, EventCtx, LayoutCtx, LifeCycleCtx, PaintCtx, Point, Rect, RenderContext, Size, UpdateCtx, Widget, widget::BackgroundBrush, widget::Painter};
 use druid::kurbo::{self, Circle};
 use druid::piet::{ImageFormat, InterpolationMode};
 
@@ -217,4 +217,24 @@ fn draw(width: usize, height: usize, get_px: impl Fn(usize, usize) -> [u8; 4]) -
         }
     }
     buf
+}
+
+
+pub fn checkered_bgbrush<T>() -> BackgroundBrush<T> {
+    BackgroundBrush::Painter(Painter::new(|ctx, _data, _env| {
+        let size = ctx.size();
+        let width = size.width as usize;
+        let height = size.height as usize;
+        ctx.fill(size.to_rect(), &druid::Color::WHITE);
+
+        let checker_side = 6.0;
+        let checker_size = Size::new(checker_side as f64, checker_side as f64);
+        let grey = druid::Color::grey(0.8);
+        for x in (0..width).step_by(checker_side as usize*2) {
+            for y in (0..height).step_by(checker_side as usize*2) {
+                ctx.fill(Rect::from_origin_size(Point::new(x as f64 + checker_side, y as f64), checker_size), &grey);
+                ctx.fill(Rect::from_origin_size(Point::new(x as f64, y as f64 + checker_side), checker_size), &grey);
+            }
+        }
+    }))
 }
