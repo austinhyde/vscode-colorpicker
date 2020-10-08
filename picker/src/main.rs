@@ -1,3 +1,5 @@
+use std::{fmt::Display, str::FromStr};
+
 use druid::{FontDescriptor, FontFamily, widget::{BackgroundBrush, Flex, Label, Painter}};
 use druid::{AppLauncher, Data, Lens, PlatformError, RenderContext, Widget, WidgetExt, WindowDesc};
 use structopt::StructOpt;
@@ -7,6 +9,31 @@ use color::Color;
 
 mod pickers;
 use pickers::*;
+
+#[derive(Debug, Clone)]
+enum Position {
+    Under,
+    Over,
+}
+impl FromStr for Position {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "under" => Ok(Position::Under),
+            "over" => Ok(Position::Over),
+            s => Err(format!("Invalid value: {}", s)),
+        }
+    }
+}
+impl Display for Position {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", match self {
+            Self::Under => "under",
+            Self::Over => "over",
+        })
+    }
+}
 
 #[derive(StructOpt, Debug, Clone)]
 struct Args {
@@ -18,6 +45,9 @@ struct Args {
 
     #[structopt(short, default_value = "100.0")]
     y: f64,
+
+    #[structopt(long, default_value = "under")]
+    position: Position,
 }
 
 #[derive(Clone, Data, Lens)]
@@ -70,7 +100,7 @@ fn main() -> Result<(), PlatformError> {
         initial_swatch_size: 30.0,
     };
 
-    let main_window = WindowDesc::new(build_root(sizing.clone()))
+    let main_window = WindowDesc::new(build_root(args.clone(), sizing.clone()))
         .window_size(sizing.window_size())
         .set_position(druid::kurbo::Point::new(args.x, args.y))
         .resizable(false)
@@ -81,26 +111,34 @@ fn main() -> Result<(), PlatformError> {
         .launch(data)
 }
 
-fn build_root(sizing: Sizing) -> impl Fn() -> Flex<PickerState> {
+fn build_root(args: Args, sizing: Sizing) -> impl Fn() -> Flex<PickerState> {
     move || {
-        Flex::column()
-            .must_fill_main_axis(true)
-            .with_child(
-                swatch()
-                    .background(pickers::checkered_bgbrush())
-                    .fix_size(sizing.window_width(), sizing.current_swatch_size)
-                    .lens(PickerState::current_color),
-            )
-            .with_child(
-                swatch()
-                    .background(pickers::checkered_bgbrush())
-                    .fix_size(sizing.window_width(), sizing.initial_swatch_size)
-                    .lens(PickerState::initial_color),
-            )
-            .with_child(
-                hsla_picker(&sizing)
-                    .lens(PickerState::current_color),
-            )
+        let curr_swatch = swatch()
+                        .background(pickers::checkered_bgbrush())
+                        .fix_size(sizing.window_width(), sizing.current_swatch_size)
+                        .lens(PickerState::current_color);
+        let init_swatch = swatch()
+                        .background(pickers::checkered_bgbrush())
+                        .fix_size(sizing.window_width(), sizing.initial_swatch_size)
+                        .lens(PickerState::initial_color);
+        let picker = hsla_picker(&sizing)
+                        .lens(PickerState::current_color);
+
+        match args.position {
+            Position::Under =>
+                Flex::column()
+                    .must_fill_main_axis(true)
+                    .with_child(curr_swatch)
+                    .with_child(init_swatch)
+                    .with_child(picker),
+
+            Position::Over =>
+                Flex::column()
+                    .must_fill_main_axis(true)
+                    .with_child(picker)
+                    .with_child(init_swatch)
+                    .with_child(curr_swatch)
+        }
     }
 }
 fn swatch() -> impl Widget<Color> {
