@@ -1,5 +1,4 @@
 use std::str::FromStr;
-use std::fmt::LowerHex;
 use druid::Data;
 
 #[derive(Debug, Data, Clone)]
@@ -74,19 +73,13 @@ impl Color {
         self.a = a;
     }
 
-    pub fn to_rgba_f32_tuple(&self) -> (f32, f32, f32, f32) {
-        (self.rgb.0, self.rgb.1, self.rgb.2, self.a)
-    }
-
-    pub fn to_rgba_u32(&self) -> u32 {
-        let [r, g, b, a] = self.pixel();
-
-        // 0xRRGGBBAA
-        ((r as u32) << 24) + ((g as u32) << 16) + ((b as u32) << 8) + (a as u32)
-    }
-
     pub fn hex(&self) -> String {
-        format!("#{:x}", self)
+        let [r, g, b, a] = self.pixel();
+        if a == 255 {
+            format!("#{:x}{:x}{:x}", r, g, b)
+        } else {
+            format!("#{:x}{:x}{:x}{:x}", r, g, b, a)
+        }
     }
 
     pub fn to_druid(&self) -> druid::Color {
@@ -105,12 +98,6 @@ impl FromStr for Color {
         s.parse()
             .map(|c: css_color::Rgba| Color::from_rgba_f32(c.red, c.green, c.blue, c.alpha))
             .map_err(|e| format!("{:?}", e))
-    }
-}
-
-impl LowerHex for Color {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:x}", self.to_rgba_u32())
     }
 }
 
