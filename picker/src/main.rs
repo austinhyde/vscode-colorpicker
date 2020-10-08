@@ -12,6 +12,12 @@ use pickers::*;
 struct Args {
     #[structopt(default_value = "#123456")]
     color: Color,
+
+    #[structopt(short, default_value = "100.0")]
+    x: f64,
+
+    #[structopt(short, default_value = "100.0")]
+    y: f64,
 }
 
 #[derive(Clone, Data, Lens)]
@@ -58,7 +64,7 @@ fn main() -> Result<(), PlatformError> {
 
     let sizing = Sizing{
         padding: 10.0,
-        picker_size: 256.0,
+        picker_size: 150.0,
         slider_size: 25.0,
         current_swatch_size: 50.0,
         initial_swatch_size: 30.0,
@@ -66,7 +72,10 @@ fn main() -> Result<(), PlatformError> {
 
     let main_window = WindowDesc::new(build_root(sizing.clone()))
         .window_size(sizing.window_size())
+        .set_position(druid::kurbo::Point::new(args.x, args.y))
+        .resizable(false)
         .show_titlebar(false);
+
     AppLauncher::with_window(main_window)
         .use_simple_logger()
         .launch(data)
