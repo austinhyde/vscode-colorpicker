@@ -106,7 +106,7 @@ fn main() -> Result<(), PlatformError> {
 
     let main_window = WindowDesc::new(build_root(args.clone(), sizing.clone()))
         .window_size(sizing.window_size())
-        .set_position(druid::kurbo::Point::new(args.x, args.y))
+        .set_position(druid::kurbo::Point::new(args.x - sizing.window_width() / 2.0, args.y))
         .resizable(false)
         .show_titlebar(false);
 
