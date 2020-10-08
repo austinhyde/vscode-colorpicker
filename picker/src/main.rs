@@ -61,7 +61,7 @@ fn main() -> Result<(), PlatformError> {
         picker_size: 256.0,
         slider_size: 25.0,
         current_swatch_size: 50.0,
-        initial_swatch_size: 20.0,
+        initial_swatch_size: 30.0,
     };
 
     // TODO: get titlebar=false working in windows, mac
@@ -94,12 +94,12 @@ fn build_root(sizing: Sizing) -> impl Fn() -> Flex<PickerState> {
     }
 }
 fn swatch() -> impl Widget<Color> {
-    let label = Label::dynamic(|c: &Color, _| c.hex());
+    let label = Label::dynamic(|c: &Color, _| c.hex()).with_font("Courier New".to_string());
     let painter = Painter::new(|ctx, data: &Color, _env| {
         let bounds = ctx.size().to_rect();
         ctx.fill(bounds, &data.to_druid())
     });
-    Container::new(label).background(BackgroundBrush::Painter(painter))
+    Container::new(label.center()).background(BackgroundBrush::Painter(painter))
 }
 
 fn hsla_picker(sizing: &Sizing) -> impl Widget<Color> {
