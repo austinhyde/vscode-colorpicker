@@ -108,6 +108,7 @@ fn main() -> Result<(), PlatformError> {
         .window_size(sizing.window_size())
         .set_position(druid::kurbo::Point::new(args.x - sizing.window_width() / 2.0, args.y))
         .resizable(false)
+        .title("Color Picker")
         .show_titlebar(false);
 
     AppLauncher::with_window(main_window)
