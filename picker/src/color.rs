@@ -76,9 +76,9 @@ impl Color {
     pub fn hex(&self) -> String {
         let [r, g, b, a] = self.pixel();
         if a == 255 {
-            format!("#{:x}{:x}{:x}", r, g, b)
+            format!("#{:02x}{:02x}{:02x}", r, g, b)
         } else {
-            format!("#{:x}{:x}{:x}{:x}", r, g, b, a)
+            format!("#{:02x}{:02x}{:02x}{:02x}", r, g, b, a)
         }
     }
 
