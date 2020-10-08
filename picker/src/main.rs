@@ -1,4 +1,4 @@
-use druid::widget::{BackgroundBrush, Flex, Label, Painter};
+use druid::{FontDescriptor, FontFamily, widget::{BackgroundBrush, Flex, Label, Painter}};
 use druid::{AppLauncher, Data, Lens, PlatformError, RenderContext, Widget, WidgetExt, WindowDesc};
 use structopt::StructOpt;
 
@@ -64,7 +64,6 @@ fn main() -> Result<(), PlatformError> {
         initial_swatch_size: 30.0,
     };
 
-    // TODO: get titlebar=false working in windows, mac
     let main_window = WindowDesc::new(build_root(sizing.clone()))
         .window_size(sizing.window_size())
         .show_titlebar(false);
@@ -96,7 +95,11 @@ fn build_root(sizing: Sizing) -> impl Fn() -> Flex<PickerState> {
     }
 }
 fn swatch() -> impl Widget<Color> {
-    let label = Label::dynamic(|c: &Color, _| c.hex()).with_font("Courier New".to_string());
+    let label = Label::dynamic(|c: &Color, _| c.hex())
+        // Druid 0.6.0
+        // .with_font("Courier New".to_string());
+        // Druid master
+        .with_font(FontDescriptor::new(FontFamily::MONOSPACE));
     let painter = Painter::new(|ctx, data: &Color, _env| {
         let bounds = ctx.size().to_rect();
         ctx.fill(bounds, &data.to_druid())
