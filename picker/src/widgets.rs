@@ -1,5 +1,5 @@
 use crate::color::Color;
-use druid::{BoxConstraints, Cursor, Env, EventCtx, LayoutCtx, LifeCycleCtx, PaintCtx, Point, Rect, RenderContext, Size, UpdateCtx, Widget, widget::BackgroundBrush, widget::Painter};
+use druid::{BoxConstraints, Cursor, Data, Env, EventCtx, LayoutCtx, LifeCycleCtx, PaintCtx, Point, Rect, RenderContext, Size, UpdateCtx, Widget, widget::BackgroundBrush, widget::Controller, widget::ControllerHost, widget::Painter};
 use druid::kurbo::{self, Circle};
 use druid::piet::{ImageFormat, InterpolationMode};
 
@@ -238,3 +238,25 @@ pub fn checkered_bgbrush<T>() -> BackgroundBrush<T> {
         }
     }))
 }
+
+pub struct OnDataChange<T> {
+    action: Box<dyn Fn(&T)>,
+}
+impl<T: Data> OnDataChange<T> {
+    pub fn new(action: impl Fn(&T) + 'static) -> Self {
+        Self{action: Box::new(action)}
+    }
+}
+impl<T, W: Widget<T>> Controller<T, W> for OnDataChange<T> {
+    fn update(&mut self, child: &mut W, ctx: &mut UpdateCtx, old_data: &T, data: &T, env: &Env) {
+        (self.action)(data);
+        child.update(ctx, old_data, data, env);
+    }
+}
+
+pub trait OnDataChangeExt<T: Data>: Widget<T> + Sized + 'static {
+    fn on_data_change(self, action: impl Fn(&T) + 'static) -> ControllerHost<Self, OnDataChange<T>> {
+        ControllerHost::new(self, OnDataChange::new(action))
+    }
+}
+impl<T: Data, W: Widget<T> + 'static> OnDataChangeExt<T> for W {}
