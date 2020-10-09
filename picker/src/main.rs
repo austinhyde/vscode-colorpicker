@@ -1,6 +1,6 @@
 use std::{fmt::Display, str::FromStr};
 
-use druid::{AppLauncher, Data, FontDescriptor, FontFamily, Lens, PlatformError, RenderContext, Widget, WidgetExt, WindowDesc};
+use druid::{AppLauncher, Data, FontFamily, Lens, PlatformError, RenderContext, Widget, WidgetExt, WindowDesc};
 use druid::widget::{BackgroundBrush, Flex, Label, Painter};
 use structopt::StructOpt;
 
@@ -40,7 +40,7 @@ struct Args {
     #[structopt(default_value = "#123456")]
     color: Color,
 
-    #[structopt(short, default_value = "100.0")]
+    #[structopt(short, default_value = "1000.0")]
     x: f64,
 
     #[structopt(short, default_value = "100.0")]

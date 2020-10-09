@@ -1,0 +1,10 @@
+#!/bin/bash
+set -e
+cd "$( dirname "${BASH_SOURCE[0]}" )"
+
+cd picker
+cargo build --release
+cd ..
+
+mkdir -p dist
+cp picker/target/release/picker dist
