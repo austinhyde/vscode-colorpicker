@@ -51,6 +51,9 @@ struct Args {
 
     #[structopt(long)]
     font: Option<String>,
+
+    #[structopt(long)]
+    font_size: Option<f64>,
 }
 
 
@@ -151,7 +154,13 @@ fn swatch(args: &Args) -> impl Widget<Color> {
         // Druid 0.6.0
         // .with_font("Courier New".to_string());
         // Druid master
-        .with_font(druid::FontDescriptor::new(args.font.clone().map_or(FontFamily::MONOSPACE, FontFamily::new_unchecked)));
+        .with_font(
+            druid::FontDescriptor::new(
+                args.font.clone()
+                    .map_or(FontFamily::MONOSPACE, FontFamily::new_unchecked)
+            )
+            .with_size(args.font_size.unwrap_or(14.0))
+        );
     let painter = Painter::new(|ctx, data: &Color, _env| {
         let bounds = ctx.size().to_rect();
         ctx.fill(bounds, &data.to_druid())

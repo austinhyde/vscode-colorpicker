@@ -1,6 +1,5 @@
 node_modules
 .vscode-test/
 *.vsix
-picker/
-target
+picker/target
 dist
