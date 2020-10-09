@@ -1,6 +1,6 @@
 use std::{fmt::Display, str::FromStr};
 
-use druid::{AppDelegate, AppLauncher, Command, Data, Event, FontFamily, Lens, PlatformError, RenderContext, Target, Widget, WidgetExt, WindowDesc, commands, keyboard_types::Key};
+use druid::{AppDelegate, AppLauncher, Command, Cursor, Data, DelegateCtx, Env, Event, FontFamily, Lens, PlatformError, RenderContext, Selector, Target, Widget, WidgetExt, WindowDesc, commands, keyboard_types::Key};
 use druid::widget::{BackgroundBrush, Flex, Label, Painter};
 use structopt::StructOpt;
 
@@ -119,32 +119,70 @@ fn main() -> Result<(), PlatformError> {
         .launch(data)
 }
 
+const COMMIT_ACTION: Selector<()> = Selector::new("commit-action");
+const RESET_ACTION: Selector<()> = Selector::new("reset-action");
+const ABORT_ACTION: Selector<()> = Selector::new("abort-action");
+
 struct Delegate;
-impl<T: druid::Data> AppDelegate<T> for Delegate {
-    fn event(&mut self, ctx: &mut druid::DelegateCtx, _window_id: druid::WindowId, event: druid::Event, _data: &mut T, _env: &druid::Env) -> Option<druid::Event> {
-        if let Event::KeyUp(e) = &event {
-            if e.key == Key::Escape {
-                ctx.submit_command(Command::new(commands::QUIT_APP, (), Target::Global));
-                return None
-            }
+impl AppDelegate<PickerState> for Delegate {
+    fn event(&mut self, ctx: &mut druid::DelegateCtx, _window_id: druid::WindowId, event: druid::Event, _state: &mut PickerState, _env: &druid::Env) -> Option<druid::Event> {
+        match &event {
+            Event::KeyUp(e) => {
+                match e.key {
+                    Key::Enter => {
+                        ctx.submit_command(Command::new(COMMIT_ACTION, (), Target::Global));
+                        None
+                    },
+                    Key::Meta | Key::Control | Key::Shift | Key::Alt => {
+                        Some(event)
+                    }
+                    _ => {
+                        ctx.submit_command(Command::new(ABORT_ACTION, (), Target::Global));
+                        None
+                    }
+                }
+            },
+            _ => Some(event)
         }
-        Some(event)
+    }
+    fn command(&mut self, ctx: &mut DelegateCtx, _target: Target, cmd: &Command, state: &mut PickerState, _env: &Env) -> bool {
+        if cmd.is(COMMIT_ACTION) {
+            println!("{}", state.current_color.hex());
+            ctx.submit_command(Command::new(commands::QUIT_APP, (), Target::Global));
+            return false
+        }
+        if cmd.is(ABORT_ACTION) {
+            ctx.submit_command(Command::new(commands::QUIT_APP, (), Target::Global));
+            return false
+        }
+        if cmd.is(RESET_ACTION) {
+            state.current_color = state.initial_color.to_owned();
+        }
+
+        true
     }
 }
 
 fn build_root(args: Args, sizing: Sizing) -> impl Fn() -> Flex<PickerState> {
     move || {
         let curr_swatch = swatch(&args)
-                        .background(checkered_bgbrush())
-                        .fix_size(sizing.window_width(), sizing.current_swatch_size)
-                        .lens(PickerState::current_color);
+            .background(checkered_bgbrush())
+            .fix_size(sizing.window_width(), sizing.current_swatch_size)
+            .lens(PickerState::current_color)
+            .on_click(|ctx, _state, _env| {
+                ctx.submit_command(Command::new(COMMIT_ACTION, (), Target::Global))
+            })
+            .with_cursor(&Cursor::Arrow); // TODO: Pointer
         let init_swatch = swatch(&args)
-                        .background(checkered_bgbrush())
-                        .fix_size(sizing.window_width(), sizing.initial_swatch_size)
-                        .lens(PickerState::initial_color);
+            .background(checkered_bgbrush())
+            .fix_size(sizing.window_width(), sizing.initial_swatch_size)
+            .lens(PickerState::initial_color)
+            .on_click(|ctx, _state, _env| {
+                ctx.submit_command(Command::new(RESET_ACTION, (), Target::Global))
+            })
+            .with_cursor(&Cursor::Arrow); // TODO: Pointer
         let picker = hsla_picker(&sizing)
-                        .on_data_change(|color| println!("{}", color.hex()))
-                        .lens(PickerState::current_color);
+            .lens(PickerState::current_color);
 
         match args.position {
             Position::Under =>
@@ -185,13 +223,11 @@ fn swatch(args: &Args) -> impl Widget<Color> {
 }
 
 fn hsla_picker(sizing: &Sizing) -> impl Widget<Color> {
-    let picker = Flex::row()
+    Flex::row()
         .with_child(SatLightPicker::new().fix_size(sizing.picker_size, sizing.picker_size))
         .with_spacer(sizing.padding)
         .with_child(HuePicker::new().fix_size(sizing.slider_size, sizing.picker_size))
         .with_spacer(sizing.padding)
         .with_child(AlphaPicker::new().fix_size(sizing.slider_size, sizing.picker_size).background(checkered_bgbrush()))
-        .padding(sizing.padding);
-
-    picker
+        .padding(sizing.padding)
 }
