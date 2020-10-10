@@ -219,6 +219,7 @@ fn main() -> Result<(), PlatformError> {
         ))
         .resizable(false)
         .title("Color Picker")
+        .set_level(druid::WindowLevel::DropDown)
         .show_titlebar(false);
 
     AppLauncher::with_window(main_window)
@@ -301,7 +302,7 @@ fn build_root(args: Args, sizing: Sizing) -> impl Fn() -> Box<dyn Widget<PickerS
             .on_click(|ctx, _state, _env| {
                 ctx.submit_command(Command::new(COMMIT_ACTION, (), Target::Global))
             })
-            .with_cursor(&Cursor::Arrow); // TODO: Pointer
+            .with_cursor(&Cursor::Pointer);
 
         let init_swatch =
             swatch(font.clone().with_size(init_size), sizing.checker_size())
@@ -311,7 +312,7 @@ fn build_root(args: Args, sizing: Sizing) -> impl Fn() -> Box<dyn Widget<PickerS
             .on_click(|ctx, _state, _env| {
                 ctx.submit_command(Command::new(RESET_ACTION, (), Target::Global))
             })
-            .with_cursor(&Cursor::Arrow); // TODO: Pointer
+            .with_cursor(&Cursor::Pointer);
 
         let picker =
             hsva_picker(&sizing)
@@ -395,7 +396,9 @@ fn format_buttons(sizing: &Sizing) -> impl Widget<Format> {
     let len = values.len();
     for variant in values.into_iter().enumerate() {
         col.add_flex_child(
-            ToggleButton::new(variant.1, variant.0 == 0, variant.0 == len-1).expand(),
+            ToggleButton::new(variant.1, variant.0 == 0, variant.0 == len-1)
+            .expand()
+            .with_cursor(&Cursor::Pointer),
             1.0
         );
     }

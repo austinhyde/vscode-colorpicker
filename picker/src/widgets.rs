@@ -166,15 +166,19 @@ impl Widget<Color> for HuePicker {
         match event {
             druid::Event::MouseDown(e) => {
                 ctx.set_active(true);
+                ctx.set_cursor(&Cursor::ClosedHand);
                 self.set(e.pos, data);
             }
             druid::Event::MouseUp(_) => {
                 ctx.set_active(false);
+                ctx.set_cursor(&Cursor::OpenHand);
             }
             druid::Event::MouseMove(e) => {
-                ctx.set_cursor(&Cursor::OpenHand);
                 if ctx.is_active() {
+                    ctx.set_cursor(&Cursor::ClosedHand);
                     self.set(e.pos, data);
+                } else {
+                    ctx.set_cursor(&Cursor::OpenHand);
                 }
             }
             _ => ()
@@ -255,15 +259,19 @@ impl Widget<Color> for AlphaPicker {
         match event {
             druid::Event::MouseDown(e) => {
                 ctx.set_active(true);
+                ctx.set_cursor(&Cursor::ClosedHand);
                 self.set(e.pos, data);
             }
             druid::Event::MouseUp(_) => {
                 ctx.set_active(false);
+                ctx.set_cursor(&Cursor::OpenHand);
             }
             druid::Event::MouseMove(e) => {
-                ctx.set_cursor(&Cursor::OpenHand);
                 if ctx.is_active() {
+                    ctx.set_cursor(&Cursor::ClosedHand);
                     self.set(e.pos, data);
+                } else {
+                    ctx.set_cursor(&Cursor::OpenHand);
                 }
             }
             _ => ()
