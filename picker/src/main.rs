@@ -260,6 +260,10 @@ impl AppDelegate<PickerState> for Delegate {
                     }
                 }
             },
+            Event::WindowBlur(_) => {
+                ctx.submit_command(Command::new(ABORT_ACTION, (), Target::Global));
+                None
+            }
             _ => Some(event)
         }
     }
