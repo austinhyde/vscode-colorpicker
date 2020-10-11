@@ -37,7 +37,7 @@ impl Display for Position {
 
 #[derive(StructOpt, Debug, Clone)]
 struct Args {
-    #[structopt(default_value = "#123456")]
+    #[structopt(default_value = "#FF0000")]
     color: Color,
 
     #[structopt(short, default_value = "1000.0")]
@@ -181,7 +181,7 @@ fn build_root(args: Args, sizing: Sizing) -> impl Fn() -> Flex<PickerState> {
                 ctx.submit_command(Command::new(RESET_ACTION, (), Target::Global))
             })
             .with_cursor(&Cursor::Arrow); // TODO: Pointer
-        let picker = hsla_picker(&sizing)
+        let picker = hsva_picker(&sizing)
             .lens(PickerState::current_color);
 
         match args.position {
@@ -222,9 +222,9 @@ fn swatch(args: &Args) -> impl Widget<Color> {
         .background(BackgroundBrush::Painter(painter))
 }
 
-fn hsla_picker(sizing: &Sizing) -> impl Widget<Color> {
+fn hsva_picker(sizing: &Sizing) -> impl Widget<Color> {
     Flex::row()
-        .with_child(SatLightPicker::new().fix_size(sizing.picker_size, sizing.picker_size))
+        .with_child(SatValuePicker::new().fix_size(sizing.picker_size, sizing.picker_size))
         .with_spacer(sizing.padding)
         .with_child(HuePicker::new().fix_size(sizing.slider_size, sizing.picker_size))
         .with_spacer(sizing.padding)

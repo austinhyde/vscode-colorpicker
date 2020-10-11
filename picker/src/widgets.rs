@@ -3,20 +3,22 @@ use druid::{BoxConstraints, Cursor, Data, Env, Event, EventCtx, LayoutCtx, LifeC
 use druid::kurbo::{self, Circle};
 use druid::piet::{ImageFormat, InterpolationMode};
 
-pub struct SatLightPicker {
+pub struct SatValuePicker {
     size: Size,
 }
 
-impl SatLightPicker {
+impl SatValuePicker {
     pub fn new() -> Self { Self { size: Size::new(0.0, 0.0) } }
 
     fn set(&self, p: Point, c: &mut Color) {
+        // x is [0..1] saturation
         c.set_saturation((p.x.max(0.0).min(self.size.width) / self.size.width) as f32);
-        c.set_lightness((p.y.max(0.0).min(self.size.height) / self.size.height) as f32);
+        // y is [1..0] value
+        c.set_value((1.0 - p.y.max(0.0).min(self.size.height) / self.size.height) as f32);
     }
 }
 
-impl Widget<Color> for SatLightPicker {
+impl Widget<Color> for SatValuePicker {
     fn paint(&mut self, ctx: &mut PaintCtx, data: &Color, _env: &Env) {
         self.size = ctx.size();
         let width = self.size.width.floor() as usize;
@@ -24,8 +26,8 @@ impl Widget<Color> for SatLightPicker {
 
         let buf = draw(width, height, |x, y| {
             let sat = x as f32 / width as f32;
-            let light = y as f32 / width as f32;
-            Color::from_hsla_f32(data.hue(), sat, light, 1.0).pixel()
+            let value = 1.0 - y as f32 / width as f32;
+            Color::from_hsva_f32(data.hue(), sat, value, 1.0).pixel()
         });
 
         let image = ctx
@@ -39,7 +41,7 @@ impl Widget<Color> for SatLightPicker {
         );
 
         let x = data.saturation() as f64 * width as f64;
-        let y = data.lightness() as f64 * height as f64;
+        let y = (1.0 - data.value() as f64) * height as f64;
         let size = 4.0;
         let stroke = 2.0;
         let circle = Circle::new(Point::new(x, y), size);
@@ -91,7 +93,7 @@ impl Widget<Color> for HuePicker {
 
         let buf = draw(width, height, |_x, y| {
             let hue = y as f32 / height as f32;
-            Color::from_hsla_f32(hue, data.saturation(), data.lightness(), 1.0).pixel()
+            Color::from_hsva_f32(hue, data.saturation(), data.value(), 1.0).pixel()
         });
 
         let image = ctx
@@ -157,7 +159,7 @@ impl Widget<Color> for AlphaPicker {
 
         let buf = draw(width, height, |_x, y| {
             let alpha = 1.0 - y as f32 / height as f32;
-            Color::from_hsla_f32(data.hue(), data.saturation(), data.lightness(), alpha).pixel()
+            Color::from_hsva_f32(data.hue(), data.saturation(), data.value(), alpha).pixel()
         });
 
         let image = ctx
