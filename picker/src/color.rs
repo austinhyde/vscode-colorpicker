@@ -1,6 +1,5 @@
 #![allow(many_single_char_names)]
 
-use std::str::FromStr;
 use druid::Data;
 
 #[derive(Debug, Data, Clone)]
@@ -75,15 +74,6 @@ impl Color {
         self.a = a;
     }
 
-    pub fn hex(&self) -> String {
-        let [r, g, b, a] = self.pixel();
-        if a == 255 {
-            format!("#{:02x}{:02x}{:02x}", r, g, b)
-        } else {
-            format!("#{:02x}{:02x}{:02x}{:02x}", r, g, b, a)
-        }
-    }
-
     pub fn to_druid(&self) -> druid::Color {
         let [r, g, b, a] = self.pixel();
         druid::Color::rgba8(r, g, b, a)
@@ -92,19 +82,63 @@ impl Color {
     pub fn pixel(&self) -> [u8; 4] {
         [u(self.rgb.0), u(self.rgb.1), u(self.rgb.2), u(self.a)]
     }
-}
 
-impl FromStr for Color {
-    type Err = String;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        s.parse()
-            .map(|c: css_color::Rgba| Color::from_rgba_f32(c.red, c.green, c.blue, c.alpha))
-            .map_err(|e| format!("{:?}", e))
+    pub fn to_hex_string(&self) -> String {
+        let [r, g, b, a] = self.pixel();
+        if a == 255 {
+            format!("#{:02x}{:02x}{:02x}", r, g, b)
+        } else {
+            format!("#{:02x}{:02x}{:02x}{:02x}", r, g, b, a)
+        }
+    }
+    pub fn to_rgb_string(&self) -> String {
+        let [r, g, b, a] = self.pixel();
+        if a == 255 {
+            format!("rgb({}, {}, {})", r, g, b)
+        } else {
+            format!("rgba({}, {}, {}, {:.0}%)", r, g, b, a as f32 / 255.0 * 100.0)
+        }
+    }
+    pub fn to_hsv_string(&self) -> String {
+        let h = self.hsv.0 * 360.0;
+        let s = self.hsv.1 * 100.0;
+        let v = self.hsv.2 * 100.0;
+        let a = self.a * 100.0;
+        if feq(a, 100.0) {
+            format!("hsv({:.0}deg, {:.0}%, {:.0}%)", h, s, v)
+        } else {
+            format!("hsva({:.0}deg, {:.0}%, {:.0}%, {:.0}%)", h, s, v, a)
+        }
+    }
+
+    pub fn to_hsl_string(&self) -> String {
+        let (h, s, l) = hsv_to_hsl(self.hsv.0, self.hsv.1, self.hsv.2);
+        let h = h * 360.0;
+        let s = s * 100.0;
+        let l = l * 100.0;
+        let a = self.a * 100.0;
+        if feq(a, 100.0) {
+            format!("hsl({:.0}deg, {:.0}%, {:.0}%)", h, s, l)
+        } else {
+            format!("hsla({:.0}deg, {:.0}%, {:.0}%, {:.0}%)", h, s, l, a)
+        }
+    }
+
+    pub fn to_vec_string(&self) -> String {
+        if feq(self.a, 1.0) {
+            format!("vec3({:.2}, {:.2}, {:.2})", self.rgb.0, self.rgb.1, self.rgb.2)
+        } else {
+            format!("vec4({:.2}, {:.2}, {:.2}, {:.2})", self.rgb.0, self.rgb.1, self.rgb.2, self.a)
+        }
     }
 }
 
 fn u(x: f32) -> u8 {
     (x * 255.).round() as u8
+}
+
+fn feq(x: f32, y: f32) -> bool {
+    (x - y).abs() <= f32::EPSILON
 }
 
 // https://en.wikipedia.org/wiki/HSL_and_HSV#HSV_to_RGB
@@ -137,17 +171,17 @@ fn rgb_to_hsv(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
     let min = r.min(g).min(b);
     let c = v - min;
 
-    let h = if c <= f32::EPSILON {
+    let h = if feq(c, 0.0) {
         0.0
-    } else if (v - r).abs() <= f32::EPSILON {
+    } else if feq(v, r) {
         (g - b) / c
-    } else if (v - g).abs() <= f32::EPSILON {
+    } else if feq(v, g) {
         (b - r) / c + 2.0
     } else {
         (r - g) / c + 4.0
     };
 
-    let s = if v <= f32::EPSILON {
+    let s = if feq(v, 0.0) {
         0.0
     } else {
         c / v
@@ -156,9 +190,19 @@ fn rgb_to_hsv(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
     (h, s, v)
 }
 
+// https://en.wikipedia.org/wiki/HSL_and_HSV#Interconversion
+fn hsv_to_hsl(h: f32, s: f32, v: f32) -> (f32, f32, f32) {
+    let l = v * (1.0 - s/2.0);
+    let s = if feq(l, 0.0) || feq(l, 1.0) {
+        0.0
+    } else {
+        (v - l) / l.min(1.0 - l)
+    };
+    (h, s, l)
+}
+
 #[cfg(test)]
 mod tests {
-
     #[test]
     fn hsv_to_rgb() {
         assert_eq!(super::hsv_to_rgb(30.0/360.0, 1.0, 1.0), (1.0, 0.5, 0.0));

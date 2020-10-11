@@ -38,7 +38,7 @@ impl Display for Position {
 #[derive(StructOpt, Debug, Clone)]
 struct Args {
     #[structopt(default_value = "#FF0000")]
-    color: Color,
+    color: ColorFormat,
 
     #[structopt(short, default_value = "1000.0")]
     x: f64,
@@ -56,11 +56,71 @@ struct Args {
     font_size: Option<f64>,
 }
 
+#[derive(Clone, Debug, Data, PartialEq)]
+enum Format {
+    Rgb,
+    Hex,
+    Hsl,
+    Hsv,
+    Vec,
+}
+impl Format {
+    pub fn format(&self, color: &Color) -> String {
+        match self {
+            Self::Rgb => color.to_rgb_string(),
+            Self::Hex => color.to_hex_string(),
+            Self::Hsl => color.to_hsl_string(),
+            Self::Hsv => color.to_hsv_string(),
+            Self::Vec => color.to_vec_string(),
+        }
+    }
+}
+impl std::fmt::Display for Format {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Rgb => write!(f, "RGB"),
+            Self::Hex => write!(f, "HEX"),
+            Self::Hsl => write!(f, "HSL"),
+            Self::Hsv => write!(f, "HSV"),
+            Self::Vec => write!(f, "VEC"),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Data, Lens)]
+struct ColorFormat {
+    color: Color,
+    format: Format,
+}
+
+impl ColorFormat {
+    fn new(color: Color, format: Format) -> Self { Self { color, format } }
+}
+
+impl std::fmt::Display for ColorFormat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.format.format(&self.color))
+    }
+}
+
+impl std::str::FromStr for ColorFormat {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        s.parse()
+            .map(|c: css_color::Rgba| {
+                ColorFormat::new(
+                    Color::from_rgba_f32(c.red, c.green, c.blue, c.alpha),
+                    Format::Hex,
+                )
+            })
+            .map_err(|e| format!("{:?}", e))
+    }
+}
 
 #[derive(Clone, Data, Lens)]
 struct PickerState {
-    initial_color: Color,
-    current_color: Color,
+    initial_color: ColorFormat,
+    current_color: ColorFormat,
 }
 
 impl PickerState {
@@ -147,7 +207,7 @@ impl AppDelegate<PickerState> for Delegate {
     }
     fn command(&mut self, ctx: &mut DelegateCtx, _target: Target, cmd: &Command, state: &mut PickerState, _env: &Env) -> bool {
         if cmd.is(COMMIT_ACTION) {
-            println!("{}", state.current_color.hex());
+            println!("{}", state.current_color);
             ctx.submit_command(Command::new(commands::QUIT_APP, (), Target::Global));
             return false
         }
@@ -182,6 +242,7 @@ fn build_root(args: Args, sizing: Sizing) -> impl Fn() -> Flex<PickerState> {
             })
             .with_cursor(&Cursor::Arrow); // TODO: Pointer
         let picker = hsva_picker(&sizing)
+            .lens(ColorFormat::color)
             .lens(PickerState::current_color);
 
         match args.position {
@@ -201,8 +262,8 @@ fn build_root(args: Args, sizing: Sizing) -> impl Fn() -> Flex<PickerState> {
         }
     }
 }
-fn swatch(args: &Args) -> impl Widget<Color> {
-    let label = Label::dynamic(|c: &Color, _| c.hex())
+fn swatch(args: &Args) -> impl Widget<ColorFormat> {
+    let label = Label::dynamic(|c: &ColorFormat, _| c.to_string())
         // Druid 0.6.0
         // .with_font("Courier New".to_string());
         // Druid master
@@ -213,9 +274,9 @@ fn swatch(args: &Args) -> impl Widget<Color> {
             )
             .with_size(args.font_size.unwrap_or(14.0))
         );
-    let painter = Painter::new(|ctx, data: &Color, _env| {
+    let painter = Painter::new(|ctx, data: &ColorFormat, _env| {
         let bounds = ctx.size().to_rect();
-        ctx.fill(bounds, &data.to_druid())
+        ctx.fill(bounds, &data.color.to_druid())
     });
     label.center()
         .background(checkered_bgbrush())
