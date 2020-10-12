@@ -22,7 +22,7 @@ impl Hsv {
     }
 }
 
-#[derive(Debug, Clone, Data)]
+#[derive(Debug, Clone)]
 pub struct Color {
     rgb: Rgb,
     hsv: Hsv,
@@ -130,6 +130,12 @@ impl Color {
         } else {
             format!("vec4({:.2}, {:.2}, {:.2}, {:.2})", self.rgb.0, self.rgb.1, self.rgb.2, self.a)
         }
+    }
+}
+
+impl Data for Color {
+    fn same(&self, other: &Self) -> bool {
+        self.pixel() == other.pixel()
     }
 }
 

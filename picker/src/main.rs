@@ -1,6 +1,6 @@
 use std::{fmt::Display, str::FromStr};
 
-use druid::{AppDelegate, AppLauncher, Command, Cursor, Data, DelegateCtx, Env, Event, FontDescriptor, FontFamily, FontWeight, Insets, Lens, PlatformError, RenderContext, Selector, Target, TextAlignment, TextLayout, Widget, WidgetExt, WindowDesc, commands, keyboard_types::Key, theme};
+use druid::{AppDelegate, AppLauncher, Command, Cursor, Data, DelegateCtx, Env, Event, FontDescriptor, FontFamily, Lens, PlatformError, RenderContext, Selector, Target, TextAlignment, TextLayout, Widget, WidgetExt, WindowDesc, commands, keyboard_types::Key, theme, widget::ControllerHost};
 use druid::widget::{Flex, Painter};
 use structopt::StructOpt;
 
@@ -9,6 +9,12 @@ use color::Color;
 
 mod widgets;
 use widgets::*;
+
+mod shape_util;
+use shape_util::*;
+
+mod widget_util;
+use widget_util::*;
 
 #[derive(Debug, Clone)]
 enum Position {
@@ -54,6 +60,9 @@ struct Args {
 
     #[structopt(long)]
     font_size: Option<f64>,
+
+    #[structopt(long)]
+    continuous: bool,
 }
 
 #[derive(Clone, Debug, Data, PartialEq)]
@@ -242,7 +251,7 @@ impl AppDelegate<PickerState> for Delegate {
     }
 }
 
-fn build_root(args: Args, sizing: Sizing) -> impl Fn() -> Flex<PickerState> {
+fn build_root(args: Args, sizing: Sizing) -> impl Fn() -> ControllerHost<Flex<PickerState>, OnDataChange<PickerState>> {
     let checker_size = sizing.checker_size();
 
     let curr_size = args.font_size.unwrap_or(16.0).min(20.0);
@@ -251,6 +260,8 @@ fn build_root(args: Args, sizing: Sizing) -> impl Fn() -> Flex<PickerState> {
         args.font.clone()
             .map_or(FontFamily::MONOSPACE, FontFamily::new_unchecked)
     );
+
+    let print_continuous = args.continuous;
 
     move || {
         let curr_swatch =
@@ -299,7 +310,12 @@ fn build_root(args: Args, sizing: Sizing) -> impl Fn() -> Flex<PickerState> {
             .lens(PickerState::current_color);
 
         col = col.with_child(buttons);
-        col
+
+        col.on_data_change(move |d| {
+            if print_continuous {
+                println!("{}", d.current_color)
+            }
+        })
     }
 }
 fn swatch(font: FontDescriptor, checker_size: f64) -> impl Widget<ColorFormat> {

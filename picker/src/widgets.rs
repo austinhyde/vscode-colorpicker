@@ -1,10 +1,12 @@
 use std::fmt::Display;
 
 use crate::color::Color;
-use druid::{FontDescriptor, FontFamily, Key, TextAlignment, TextLayout, kurbo::Line, widget::{BackgroundBrush, Controller, ControllerHost, Painter, prelude::*}};
+use druid::{FontDescriptor, FontFamily, Key, TextAlignment, TextLayout, kurbo::Line, widget::{BackgroundBrush, Painter, prelude::*}};
 use druid::kurbo::Circle;
 use druid::piet::{ImageFormat, InterpolationMode};
 use druid::{BoxConstraints, Cursor, Data, Env, Event, EventCtx, LayoutCtx, LifeCycleCtx, PaintCtx, Point, Rect, RenderContext, Size, UpdateCtx, Widget};
+
+use crate::shape_util::*;
 
 pub struct SatValuePicker {
     size: Size,
@@ -287,79 +289,6 @@ pub fn checkered_bgbrush<T>(checker_side: f64) -> BackgroundBrush<T> {
             }
         }
     }))
-}
-
-pub struct WithCursor(&'static Cursor);
-impl<T, W: Widget<T>> Controller<T, W> for WithCursor {
-    fn event(&mut self, child: &mut W, ctx: &mut EventCtx, event: &Event, data: &mut T, env: &Env) {
-        if let Event::MouseMove(_) = event {
-            ctx.set_cursor(self.0);
-        }
-        child.event(ctx, event, data, env);
-    }
-}
-pub trait WithCursorExt<T: Data>: Widget<T> + Sized + 'static {
-    fn with_cursor(self, cursor: &'static Cursor) -> ControllerHost<Self, WithCursor> {
-        ControllerHost::new(self, WithCursor(cursor))
-    }
-}
-impl<T: Data, W: Widget<T> + 'static> WithCursorExt<T> for W {}
-
-pub trait ShapeHelpExt where Self: Sized {
-    type K;
-    fn translate(&self, x: f64, y: f64) -> Self;
-    fn shrink(&self, k: Self::K) -> Self;
-    fn clamp(&self, bounds: Rect) -> Self;
-}
-impl ShapeHelpExt for Rect {
-    type K = Size;
-    fn translate(&self, x: f64, y: f64) -> Self {
-        Rect::new(
-            self.x0 + x,
-            self.y0 + y,
-            self.x1 + x,
-            self.y1 + y
-        )
-    }
-
-    fn shrink(&self, k: Size) -> Self {
-        Rect::new(
-            self.x0 + k.width,
-            self.y0 + k.height,
-            self.x1 - k.width,
-            self.y1 - k.height,
-        )
-    }
-
-    fn clamp(&self, bounds: Rect) -> Self {
-        Rect::new(
-            self.x0.max(bounds.x0).min(bounds.x1 - self.width()),
-            self.y0.max(bounds.y0).min(bounds.y1 - self.height()),
-            self.x1.max(bounds.x0 + self.width()).min(bounds.x1),
-            self.y1.max(bounds.y0 + self.height()).min(bounds.y1),
-        )
-    }
-}
-impl ShapeHelpExt for Circle {
-    type K = f64;
-
-    fn translate(&self, x: f64, y: f64) -> Self {
-        Circle::new(Point::new(self.center.x + x, self.center.y + y), self.radius)
-    }
-
-    fn shrink(&self, k: f64) -> Self {
-        Circle::new(self.center, self.radius - k)
-    }
-
-    fn clamp(&self, bounds: Rect) -> Self {
-        Circle::new(
-            Point::new(
-                self.center.x.max(bounds.x0 + self.radius).min(bounds.x1 - self.radius),
-                self.center.y.max(bounds.y0 + self.radius).min(bounds.y1 - self.radius),
-            ),
-            self.radius,
-        )
-    }
 }
 
 
