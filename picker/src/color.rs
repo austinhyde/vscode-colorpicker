@@ -1,4 +1,4 @@
-#![allow(many_single_char_names)]
+#![allow(clippy::many_single_char_names)]
 
 use druid::Data;
 

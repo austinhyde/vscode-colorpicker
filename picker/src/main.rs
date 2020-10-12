@@ -1,7 +1,7 @@
 use std::{fmt::Display, str::FromStr};
 
-use druid::{AppDelegate, AppLauncher, Command, Cursor, Data, DelegateCtx, Env, Event, FontFamily, Lens, PlatformError, RenderContext, Selector, Target, Widget, WidgetExt, WindowDesc, commands, keyboard_types::Key, theme};
-use druid::widget::{BackgroundBrush, Flex, Label, Painter};
+use druid::{AppDelegate, AppLauncher, Command, Cursor, Data, DelegateCtx, Env, Event, FontDescriptor, FontFamily, FontWeight, Insets, Lens, PlatformError, RenderContext, Selector, Target, TextAlignment, TextLayout, Widget, WidgetExt, WindowDesc, commands, keyboard_types::Key, theme};
+use druid::widget::{Flex, Painter};
 use structopt::StructOpt;
 
 mod color;
@@ -40,7 +40,7 @@ struct Args {
     #[structopt(default_value = "#FF0000")]
     color: ColorFormat,
 
-    #[structopt(short, default_value = "1000.0")]
+    #[structopt(short, default_value = "500.0")]
     x: f64,
 
     #[structopt(short, default_value = "100.0")]
@@ -73,6 +73,9 @@ impl Format {
             Self::Hsv => color.to_hsv_string(),
             Self::Vec => color.to_vec_string(),
         }
+    }
+    pub fn values() -> Vec<Format> {
+        vec![Self::Rgb, Self::Hex, Self::Hsl, Self::Hsv, Self::Vec]
     }
 }
 impl std::fmt::Display for Format {
@@ -139,6 +142,7 @@ struct Sizing {
     slider_size: f64,
     current_swatch_size: f64,
     initial_swatch_size: f64,
+    button_height: f64,
 }
 impl Sizing {
     fn window_size(&self) -> (f64, f64) {
@@ -151,7 +155,7 @@ impl Sizing {
         self.padding*4.0 + self.picker_size + self.slider_size*2.0
     }
     fn window_height(&self) -> f64 {
-        self.current_swatch_size + self.initial_swatch_size + self.padding*2.0 + self.picker_size
+        self.current_swatch_size + self.initial_swatch_size + self.padding*2.0 + self.picker_size + self.button_height
     }
     fn checker_size(&self) -> f64 {
         self.slider_size / 4.0
@@ -168,9 +172,11 @@ fn main() -> Result<(), PlatformError> {
         slider_size: 18.0,
         current_swatch_size: 64.0,
         initial_swatch_size: 26.0,
+        button_height: 20.0,
     };
 
-    let main_window = WindowDesc::new(build_root(args.clone(), sizing.clone()))
+    let main_window =
+        WindowDesc::new(build_root(args.clone(), sizing.clone()))
         .window_size(sizing.window_size())
         .set_position(druid::kurbo::Point::new(args.x - sizing.window_width() / 2.0, args.y))
         .resizable(false)
@@ -180,7 +186,14 @@ fn main() -> Result<(), PlatformError> {
     AppLauncher::with_window(main_window)
         .delegate(Delegate{})
         .configure_env(|env, _| {
-            env.set(theme::WINDOW_BACKGROUND_COLOR, druid::Color::grey(0.85));
+            let window_background = druid::Color::grey8(0xEB);
+
+            env.set(theme::WINDOW_BACKGROUND_COLOR, window_background.clone());
+            env.set(TOGGLE_ACTIVE_BG, window_background);
+            env.set(TOGGLE_ACTIVE_FG, druid::Color::grey8(0x55));
+            env.set(TOGGLE_INACTIVE_BG, druid::Color::grey8(0xD6));
+            env.set(TOGGLE_INACTIVE_FG, druid::Color::grey8(0x77));
+            env.set(TOGGLE_BORDER, druid::Color::grey8(0xC0));
         })
         .launch(data)
 }
@@ -231,8 +244,17 @@ impl AppDelegate<PickerState> for Delegate {
 
 fn build_root(args: Args, sizing: Sizing) -> impl Fn() -> Flex<PickerState> {
     let checker_size = sizing.checker_size();
+
+    let curr_size = args.font_size.unwrap_or(16.0).min(20.0);
+    let init_size = (curr_size - 4.0).max(10.0);
+    let font = druid::FontDescriptor::new(
+        args.font.clone()
+            .map_or(FontFamily::MONOSPACE, FontFamily::new_unchecked)
+    );
+
     move || {
-        let curr_swatch = swatch(&args, &sizing)
+        let curr_swatch =
+            swatch(font.clone().with_size(curr_size), sizing.checker_size())
             .background(checkered_bgbrush(checker_size))
             .fix_size(sizing.window_width(), sizing.current_swatch_size)
             .lens(PickerState::current_color)
@@ -240,7 +262,9 @@ fn build_root(args: Args, sizing: Sizing) -> impl Fn() -> Flex<PickerState> {
                 ctx.submit_command(Command::new(COMMIT_ACTION, (), Target::Global))
             })
             .with_cursor(&Cursor::Arrow); // TODO: Pointer
-        let init_swatch = swatch(&args, &sizing)
+
+        let init_swatch =
+            swatch(font.clone().with_size(init_size), sizing.checker_size())
             .background(checkered_bgbrush(checker_size))
             .fix_size(sizing.window_width(), sizing.initial_swatch_size)
             .lens(PickerState::initial_color)
@@ -248,46 +272,56 @@ fn build_root(args: Args, sizing: Sizing) -> impl Fn() -> Flex<PickerState> {
                 ctx.submit_command(Command::new(RESET_ACTION, (), Target::Global))
             })
             .with_cursor(&Cursor::Arrow); // TODO: Pointer
-        let picker = hsva_picker(&sizing)
+
+        let picker =
+            hsva_picker(&sizing)
             .lens(ColorFormat::color)
             .lens(PickerState::current_color);
 
-        match args.position {
+        let mut col = Flex::column().must_fill_main_axis(true);
+        col = match args.position {
             Position::Under =>
-                Flex::column()
-                    .must_fill_main_axis(true)
-                    .with_child(curr_swatch)
-                    .with_child(init_swatch)
-                    .with_child(picker),
+                col
+                .with_child(curr_swatch)
+                .with_child(init_swatch)
+                .with_child(picker),
 
             Position::Over =>
-                Flex::column()
-                    .must_fill_main_axis(true)
-                    .with_child(picker)
-                    .with_child(init_swatch)
-                    .with_child(curr_swatch)
-        }
+                col
+                .with_child(picker)
+                .with_child(init_swatch)
+                .with_child(curr_swatch)
+        };
+
+        let buttons =
+            format_buttons(&sizing)
+            .lens(ColorFormat::format)
+            .lens(PickerState::current_color);
+
+        col = col.with_child(buttons);
+        col
     }
 }
-fn swatch(args: &Args, sizing: &Sizing) -> impl Widget<ColorFormat> {
-    let label = Label::dynamic(|c: &ColorFormat, _| c.to_string())
-        // Druid 0.6.0
-        // .with_font("Courier New".to_string());
-        // Druid master
-        .with_font(
-            druid::FontDescriptor::new(
-                args.font.clone()
-                    .map_or(FontFamily::MONOSPACE, FontFamily::new_unchecked)
-            )
-            .with_size(args.font_size.unwrap_or(14.0))
-        );
-    let painter = Painter::new(|ctx, data: &ColorFormat, _env| {
-        let bounds = ctx.size().to_rect();
-        ctx.fill(bounds, &data.color.to_druid())
-    });
-    label.center()
-        .background(checkered_bgbrush(sizing.checker_size()))
-        .background(BackgroundBrush::Painter(painter))
+fn swatch(font: FontDescriptor, checker_size: f64) -> impl Widget<ColorFormat> {
+    Painter::new(move |ctx, data: &ColorFormat, env| {
+        let size = ctx.size();
+        ctx.clip(size.to_rect());
+        ctx.fill(size.to_rect(), &data.color.to_druid());
+
+        let mut text: TextLayout<String> = TextLayout::new();
+        text.set_font(font.clone());
+        text.set_text_alignment(TextAlignment::Center);
+        text.set_text_color(druid::Color::WHITE);
+        text.set_wrap_width(ctx.size().width);
+        text.set_text(data.to_string());
+        text.rebuild_if_needed(ctx.text(), env);
+
+        let center = (size.to_vec2() - text.size().to_vec2()) / 2.0;
+
+        ctx.blurred_rect(text.size().to_rect().translate(center.x, center.y), 55.0, &druid::Color::BLACK.with_alpha(0.2));
+
+        text.draw(ctx, center.to_point());
+    }).background(checkered_bgbrush(checker_size))
 }
 
 fn hsva_picker(sizing: &Sizing) -> impl Widget<Color> {
@@ -298,4 +332,17 @@ fn hsva_picker(sizing: &Sizing) -> impl Widget<Color> {
         .with_spacer(sizing.padding)
         .with_child(AlphaPicker::new().fix_size(sizing.slider_size, sizing.picker_size).background(checkered_bgbrush(sizing.checker_size())))
         .padding(sizing.padding)
+}
+
+fn format_buttons(sizing: &Sizing) -> impl Widget<Format> {
+    let mut col = Flex::row().must_fill_main_axis(true);
+    let values = Format::values();
+    let len = values.len();
+    for variant in values.into_iter().enumerate() {
+        col.add_flex_child(
+            ToggleButton::new(variant.1, variant.0 == 0, variant.0 == len-1).expand(),
+            1.0
+        );
+    }
+    col.fix_height(sizing.button_height)
 }

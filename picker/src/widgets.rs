@@ -1,7 +1,10 @@
+use std::fmt::Display;
+
 use crate::color::Color;
-use druid::{BoxConstraints, Cursor, Data, Env, Event, EventCtx, LayoutCtx, LifeCycleCtx, PaintCtx, Point, Rect, RenderContext, Size, UpdateCtx, Widget, widget::BackgroundBrush, widget::Controller, widget::ControllerHost, widget::Painter};
+use druid::{FontDescriptor, FontFamily, Key, TextAlignment, TextLayout, kurbo::Line, widget::{BackgroundBrush, Controller, ControllerHost, Painter, prelude::*}};
 use druid::kurbo::Circle;
 use druid::piet::{ImageFormat, InterpolationMode};
+use druid::{BoxConstraints, Cursor, Data, Env, Event, EventCtx, LayoutCtx, LifeCycleCtx, PaintCtx, Point, Rect, RenderContext, Size, UpdateCtx, Widget};
 
 pub struct SatValuePicker {
     size: Size,
@@ -36,10 +39,10 @@ impl Widget<Color> for SatValuePicker {
 
         ctx.draw_image(
             &image,
-            Rect::from_origin_size(Point::ORIGIN, self.size),
+            self.size.to_rect(),
             InterpolationMode::Bilinear,
         );
-        ctx.stroke(Rect::from_origin_size(Point::ORIGIN, self.size).to_rounded_rect(1.0), &druid::Color::BLACK.with_alpha(0.2), 0.5);
+        ctx.stroke(self.size.to_rounded_rect(1.0), &druid::Color::BLACK.with_alpha(0.2), 0.5);
 
         let x = data.saturation() as f64 * width as f64;
         let y = (1.0 - data.value() as f64) * height as f64;
@@ -68,7 +71,9 @@ impl Widget<Color> for SatValuePicker {
                 self.set(e.pos, data);
             }
             druid::Event::MouseUp(_) => {
-                ctx.set_active(false);
+                if ctx.is_active() {
+                    ctx.set_active(false);
+                }
             }
             druid::Event::MouseMove(e) => {
                 ctx.set_cursor(&Cursor::Crosshair);
@@ -80,7 +85,11 @@ impl Widget<Color> for SatValuePicker {
         }
     }
     fn lifecycle(&mut self, _ctx: &mut LifeCycleCtx, _event: &druid::LifeCycle, _data: &Color, _env: &Env) {}
-    fn update(&mut self, _ctx: &mut UpdateCtx, _old_data: &Color, _data: &Color, _env: &Env) {}
+    fn update(&mut self, ctx: &mut UpdateCtx, old_data: &Color, data: &Color, _env: &Env) {
+        if !old_data.same(data) {
+            ctx.request_paint()
+        }
+    }
 }
 
 pub struct HuePicker {
@@ -157,7 +166,11 @@ impl Widget<Color> for HuePicker {
         }
     }
     fn lifecycle(&mut self, _ctx: &mut LifeCycleCtx, _event: &druid::LifeCycle, _data: &Color, _env: &Env) {}
-    fn update(&mut self, _ctx: &mut UpdateCtx, _old_data: &Color, _data: &Color, _env: &Env) {}
+    fn update(&mut self, ctx: &mut UpdateCtx, old_data: &Color, data: &Color, _env: &Env) {
+        if !old_data.same(data) {
+            ctx.request_paint()
+        }
+    }
 }
 
 pub struct AlphaPicker {
@@ -234,7 +247,11 @@ impl Widget<Color> for AlphaPicker {
         }
     }
     fn lifecycle(&mut self, _ctx: &mut LifeCycleCtx, _event: &druid::LifeCycle, _data: &Color, _env: &Env) {}
-    fn update(&mut self, _ctx: &mut UpdateCtx, _old_data: &Color, _data: &Color, _env: &Env) {}
+    fn update(&mut self, ctx: &mut UpdateCtx, old_data: &Color, data: &Color, _env: &Env) {
+        if !old_data.same(data) {
+            ctx.request_paint()
+        }
+    }
 }
 
 
@@ -342,5 +359,119 @@ impl ShapeHelpExt for Circle {
             ),
             self.radius,
         )
+    }
+}
+
+
+pub struct ToggleButton<T: Display> {
+    variant: T,
+    layout: TextLayout<String>,
+    is_first: bool,
+    is_last: bool,
+}
+
+impl<T: Data+Display+PartialEq> ToggleButton<T> {
+    pub fn new(variant: T, is_first: bool, is_last: bool) -> ToggleButton<T> {
+        ToggleButton {
+            variant,
+            layout: TextLayout::new(),
+            is_first,
+            is_last,
+        }
+    }
+
+    pub fn is_active(&self, data: &T) -> bool {
+        *data == self.variant
+    }
+}
+
+pub const TOGGLE_ACTIVE_BG: Key<druid::Color> = Key::new("togglebutton.active.bg");
+pub const TOGGLE_ACTIVE_FG: Key<druid::Color> = Key::new("togglebutton.active.fg");
+pub const TOGGLE_INACTIVE_BG: Key<druid::Color> = Key::new("togglebutton.inactive.bg");
+pub const TOGGLE_INACTIVE_FG: Key<druid::Color> = Key::new("togglebutton.inactive.fg");
+pub const TOGGLE_BORDER: Key<druid::Color> = Key::new("togglebutton.border");
+
+impl<T: Data + PartialEq + Display + std::fmt::Debug> Widget<T> for ToggleButton<T> {
+    fn event(&mut self, ctx: &mut EventCtx, event: &Event, data: &mut T, _env: &Env) {
+        match event {
+            Event::MouseDown(_) => {
+                ctx.set_active(true);
+                ctx.request_paint();
+            }
+            Event::MouseUp(_) => {
+                if ctx.is_active() {
+                    ctx.set_active(false);
+                    if ctx.is_hot() {
+                        *data = self.variant.clone();
+                    }
+                    ctx.request_paint();
+                }
+            }
+            _ => (),
+        }
+    }
+
+    fn lifecycle(&mut self, ctx: &mut LifeCycleCtx, event: &LifeCycle, data: &T, env: &Env) {
+        if matches!(event, LifeCycle::WidgetAdded) {
+            self.layout.set_text(self.variant.to_string());
+            self.layout.set_font(FontDescriptor::new(FontFamily::SYSTEM_UI));
+            self.layout.set_text_alignment(TextAlignment::Center);
+            self.layout.set_text_size(9.0);
+            if self.is_active(data) {
+                self.layout.set_text_color(env.get(TOGGLE_ACTIVE_FG));
+            } else {
+                self.layout.set_text_color(env.get(TOGGLE_INACTIVE_FG));
+            }
+            self.layout.rebuild_if_needed(ctx.text(), env)
+        }
+        if let LifeCycle::HotChanged(_) = event {
+            ctx.request_paint();
+        }
+    }
+
+    fn update(&mut self, ctx: &mut UpdateCtx, old_data: &T, data: &T, env: &Env) {
+        if !old_data.same(data) {
+            if self.is_active(data) {
+                self.layout.set_text_color(env.get(TOGGLE_ACTIVE_FG));
+            } else {
+                self.layout.set_text_color(env.get(TOGGLE_INACTIVE_FG));
+            }
+            self.layout.rebuild_if_needed(ctx.text(), env);
+            ctx.request_paint();
+        }
+    }
+
+    fn layout(&mut self, ctx: &mut LayoutCtx, bc: &BoxConstraints, _data: &T, env: &Env) -> Size {
+        self.layout.set_wrap_width(bc.max().width);
+        self.layout.rebuild_if_needed(ctx.text(), env);
+        bc.max()
+    }
+
+    fn paint(&mut self, ctx: &mut PaintCtx, data: &T, env: &Env) {
+        let size = ctx.size();
+
+        // Check if data enum matches our variant
+        let bg = if self.is_active(data) {
+            env.get(TOGGLE_ACTIVE_BG)
+        } else {
+            env.get(TOGGLE_INACTIVE_BG)
+        };
+        ctx.fill(Rect::new(0.0, 0.0, size.width, size.height), &bg);
+
+        let border = env.get(TOGGLE_BORDER);
+        if !self.is_first {
+            ctx.stroke(Line::new((0.0, 0.0), (0.0, size.height)), &border, 1.0);
+        }
+        if !self.is_last {
+            ctx.stroke(Line::new((size.width, 0.0), (size.width, size.height)), &border, 1.0);
+        }
+
+        if !self.is_active(data) {
+            ctx.stroke(Line::new((0.0, 0.5), (size.width, 0.5)), &border, 1.0);
+        }
+
+        // Paint the text label
+        let offset = (size.to_vec2() - self.layout.size().to_vec2()) / 2.0;
+        self.layout.draw(ctx, offset.to_point());
     }
 }
