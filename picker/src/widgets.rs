@@ -1,6 +1,6 @@
 use crate::color::Color;
 use druid::{BoxConstraints, Cursor, Data, Env, Event, EventCtx, LayoutCtx, LifeCycleCtx, PaintCtx, Point, Rect, RenderContext, Size, UpdateCtx, Widget, widget::BackgroundBrush, widget::Controller, widget::ControllerHost, widget::Painter};
-use druid::kurbo::{self, Circle};
+use druid::kurbo::Circle;
 use druid::piet::{ImageFormat, InterpolationMode};
 
 pub struct SatValuePicker {
@@ -39,12 +39,22 @@ impl Widget<Color> for SatValuePicker {
             Rect::from_origin_size(Point::ORIGIN, self.size),
             InterpolationMode::Bilinear,
         );
+        ctx.stroke(Rect::from_origin_size(Point::ORIGIN, self.size).to_rounded_rect(1.0), &druid::Color::BLACK.with_alpha(0.2), 0.5);
 
         let x = data.saturation() as f64 * width as f64;
         let y = (1.0 - data.value() as f64) * height as f64;
-        let size = 4.0;
+        let size = 4.5;
         let stroke = 2.0;
-        let circle = Circle::new(Point::new(x, y), size);
+        let inset = 1.0;
+        let circle = Circle::new(Point::new(x, y), size)
+            .shrink(stroke/2.0)
+            .clamp(
+                Rect::new(0.0, 0.0, width as f64, height as f64)
+                .shrink(Size::new(inset, inset))
+                .shrink(Size::new(stroke/2.0, stroke/2.0))
+            );
+        let shadow_circle = circle.translate(0.0, 1.0);
+        ctx.stroke(shadow_circle, &druid::Color::BLACK.with_alpha(0.2), stroke);
         ctx.stroke(circle, &druid::Color::WHITE, stroke);
     }
 
@@ -105,13 +115,24 @@ impl Widget<Color> for HuePicker {
             Rect::from_origin_size(Point::ORIGIN, self.size),
             InterpolationMode::Bilinear,
         );
+        ctx.stroke(Rect::from_origin_size(Point::ORIGIN, self.size).to_rounded_rect(1.0), &druid::Color::BLACK.with_alpha(0.2), 0.5);
 
         let y = data.hue() as f64 * height as f64;
-        let size = 4.0;
+        let size = 5.0;
         let inset = 1.0;
         let stroke = 2.0;
-        let rect = kurbo::Rect::new(inset, y, width as f64 - inset, y+size);
-        ctx.stroke(rect, &druid::Color::WHITE, stroke);
+
+        let rect = Rect::new(0.0, y, width as f64, y + size)
+            .translate(0.0, -size/2.0)
+            .shrink(Size::new(inset, 0.0))
+            .shrink(Size::new(stroke/2.0, stroke/2.0))
+            .clamp(
+                Rect::new(0.0, 0.0, width as f64, height as f64)
+                .shrink(Size::new(stroke/2.0, stroke/2.0))
+            );
+            let rect_shadow = rect.translate(0.0, 0.5);
+        ctx.stroke(rect_shadow.to_rounded_rect(0.5), &druid::Color::BLACK.with_alpha(0.2), stroke);
+        ctx.stroke(rect.to_rounded_rect(0.5), &druid::Color::WHITE, stroke);
     }
 
     fn layout( &mut self, _ctx: &mut LayoutCtx, bc: &BoxConstraints, _data: &Color, _env: &Env ) -> druid::Size {
@@ -171,13 +192,24 @@ impl Widget<Color> for AlphaPicker {
             Rect::from_origin_size(Point::ORIGIN, self.size),
             InterpolationMode::Bilinear,
         );
+        ctx.stroke(Rect::from_origin_size(Point::ORIGIN, self.size).to_rounded_rect(1.0), &druid::Color::BLACK.with_alpha(0.2), 0.5);
 
         let y = (1.0 - data.alpha()) as f64 * height as f64;
-        let size = 4.0;
+        let size = 5.0;
         let inset = 1.0;
         let stroke = 2.0;
-        let rect = kurbo::Rect::new(inset, y, width as f64 - inset, y+size);
-        ctx.stroke(rect, &druid::Color::WHITE, stroke);
+
+        let rect = Rect::new(0.0, y, width as f64, y + size)
+            .translate(0.0, -size/2.0)
+            .shrink(Size::new(inset, 0.0))
+            .shrink(Size::new(stroke/2.0, stroke/2.0))
+            .clamp(
+                Rect::new(0.0, 0.0, width as f64, height as f64)
+                .shrink(Size::new(stroke/2.0, stroke/2.0))
+            );
+        let rect_shadow = rect.translate(0.0, 0.5);
+        ctx.stroke(rect_shadow.to_rounded_rect(0.5), &druid::Color::BLACK.with_alpha(0.2), stroke);
+        ctx.stroke(rect.to_rounded_rect(0.5), &druid::Color::WHITE, stroke);
     }
 
     fn layout( &mut self, _ctx: &mut LayoutCtx, bc: &BoxConstraints, _data: &Color, _env: &Env ) -> druid::Size {
@@ -222,16 +254,15 @@ fn draw(width: usize, height: usize, get_px: impl Fn(usize, usize) -> [u8; 4]) -
 }
 
 
-pub fn checkered_bgbrush<T>() -> BackgroundBrush<T> {
-    BackgroundBrush::Painter(Painter::new(|ctx, _data, _env| {
+pub fn checkered_bgbrush<T>(checker_side: f64) -> BackgroundBrush<T> {
+    BackgroundBrush::Painter(Painter::new(move |ctx, _data, _env| {
         let size = ctx.size();
         let width = size.width as usize;
         let height = size.height as usize;
         ctx.fill(size.to_rect(), &druid::Color::WHITE);
 
-        let checker_side = 6.0;
         let checker_size = Size::new(checker_side as f64, checker_side as f64);
-        let grey = druid::Color::grey(0.8);
+        let grey = druid::Color::grey(0.9);
         for x in (0..width).step_by(checker_side as usize*2) {
             for y in (0..height).step_by(checker_side as usize*2) {
                 ctx.fill(Rect::from_origin_size(Point::new(x as f64 + checker_side, y as f64), checker_size), &grey);
@@ -256,3 +287,60 @@ pub trait WithCursorExt<T: Data>: Widget<T> + Sized + 'static {
     }
 }
 impl<T: Data, W: Widget<T> + 'static> WithCursorExt<T> for W {}
+
+pub trait ShapeHelpExt where Self: Sized {
+    type K;
+    fn translate(&self, x: f64, y: f64) -> Self;
+    fn shrink(&self, k: Self::K) -> Self;
+    fn clamp(&self, bounds: Rect) -> Self;
+}
+impl ShapeHelpExt for Rect {
+    type K = Size;
+    fn translate(&self, x: f64, y: f64) -> Self {
+        Rect::new(
+            self.x0 + x,
+            self.y0 + y,
+            self.x1 + x,
+            self.y1 + y
+        )
+    }
+
+    fn shrink(&self, k: Size) -> Self {
+        Rect::new(
+            self.x0 + k.width,
+            self.y0 + k.height,
+            self.x1 - k.width,
+            self.y1 - k.height,
+        )
+    }
+
+    fn clamp(&self, bounds: Rect) -> Self {
+        Rect::new(
+            self.x0.max(bounds.x0).min(bounds.x1 - self.width()),
+            self.y0.max(bounds.y0).min(bounds.y1 - self.height()),
+            self.x1.max(bounds.x0 + self.width()).min(bounds.x1),
+            self.y1.max(bounds.y0 + self.height()).min(bounds.y1),
+        )
+    }
+}
+impl ShapeHelpExt for Circle {
+    type K = f64;
+
+    fn translate(&self, x: f64, y: f64) -> Self {
+        Circle::new(Point::new(self.center.x + x, self.center.y + y), self.radius)
+    }
+
+    fn shrink(&self, k: f64) -> Self {
+        Circle::new(self.center, self.radius - k)
+    }
+
+    fn clamp(&self, bounds: Rect) -> Self {
+        Circle::new(
+            Point::new(
+                self.center.x.max(bounds.x0 + self.radius).min(bounds.x1 - self.radius),
+                self.center.y.max(bounds.y0 + self.radius).min(bounds.y1 - self.radius),
+            ),
+            self.radius,
+        )
+    }
+}

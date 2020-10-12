@@ -1,6 +1,6 @@
 use std::{fmt::Display, str::FromStr};
 
-use druid::{AppDelegate, AppLauncher, Command, Cursor, Data, DelegateCtx, Env, Event, FontFamily, Lens, PlatformError, RenderContext, Selector, Target, Widget, WidgetExt, WindowDesc, commands, keyboard_types::Key};
+use druid::{AppDelegate, AppLauncher, Command, Cursor, Data, DelegateCtx, Env, Event, FontFamily, Lens, PlatformError, RenderContext, Selector, Target, Widget, WidgetExt, WindowDesc, commands, keyboard_types::Key, theme};
 use druid::widget::{BackgroundBrush, Flex, Label, Painter};
 use structopt::StructOpt;
 
@@ -153,6 +153,9 @@ impl Sizing {
     fn window_height(&self) -> f64 {
         self.current_swatch_size + self.initial_swatch_size + self.padding*2.0 + self.picker_size
     }
+    fn checker_size(&self) -> f64 {
+        self.slider_size / 4.0
+    }
 }
 
 fn main() -> Result<(), PlatformError> {
@@ -161,10 +164,10 @@ fn main() -> Result<(), PlatformError> {
 
     let sizing = Sizing{
         padding: 10.0,
-        picker_size: 150.0,
-        slider_size: 25.0,
-        current_swatch_size: 50.0,
-        initial_swatch_size: 30.0,
+        picker_size: 198.0,
+        slider_size: 18.0,
+        current_swatch_size: 64.0,
+        initial_swatch_size: 26.0,
     };
 
     let main_window = WindowDesc::new(build_root(args.clone(), sizing.clone()))
@@ -176,6 +179,9 @@ fn main() -> Result<(), PlatformError> {
 
     AppLauncher::with_window(main_window)
         .delegate(Delegate{})
+        .configure_env(|env, _| {
+            env.set(theme::WINDOW_BACKGROUND_COLOR, druid::Color::grey(0.85));
+        })
         .launch(data)
 }
 
@@ -224,17 +230,18 @@ impl AppDelegate<PickerState> for Delegate {
 }
 
 fn build_root(args: Args, sizing: Sizing) -> impl Fn() -> Flex<PickerState> {
+    let checker_size = sizing.checker_size();
     move || {
-        let curr_swatch = swatch(&args)
-            .background(checkered_bgbrush())
+        let curr_swatch = swatch(&args, &sizing)
+            .background(checkered_bgbrush(checker_size))
             .fix_size(sizing.window_width(), sizing.current_swatch_size)
             .lens(PickerState::current_color)
             .on_click(|ctx, _state, _env| {
                 ctx.submit_command(Command::new(COMMIT_ACTION, (), Target::Global))
             })
             .with_cursor(&Cursor::Arrow); // TODO: Pointer
-        let init_swatch = swatch(&args)
-            .background(checkered_bgbrush())
+        let init_swatch = swatch(&args, &sizing)
+            .background(checkered_bgbrush(checker_size))
             .fix_size(sizing.window_width(), sizing.initial_swatch_size)
             .lens(PickerState::initial_color)
             .on_click(|ctx, _state, _env| {
@@ -262,7 +269,7 @@ fn build_root(args: Args, sizing: Sizing) -> impl Fn() -> Flex<PickerState> {
         }
     }
 }
-fn swatch(args: &Args) -> impl Widget<ColorFormat> {
+fn swatch(args: &Args, sizing: &Sizing) -> impl Widget<ColorFormat> {
     let label = Label::dynamic(|c: &ColorFormat, _| c.to_string())
         // Druid 0.6.0
         // .with_font("Courier New".to_string());
@@ -279,7 +286,7 @@ fn swatch(args: &Args) -> impl Widget<ColorFormat> {
         ctx.fill(bounds, &data.color.to_druid())
     });
     label.center()
-        .background(checkered_bgbrush())
+        .background(checkered_bgbrush(sizing.checker_size()))
         .background(BackgroundBrush::Painter(painter))
 }
 
@@ -289,6 +296,6 @@ fn hsva_picker(sizing: &Sizing) -> impl Widget<Color> {
         .with_spacer(sizing.padding)
         .with_child(HuePicker::new().fix_size(sizing.slider_size, sizing.picker_size))
         .with_spacer(sizing.padding)
-        .with_child(AlphaPicker::new().fix_size(sizing.slider_size, sizing.picker_size).background(checkered_bgbrush()))
+        .with_child(AlphaPicker::new().fix_size(sizing.slider_size, sizing.picker_size).background(checkered_bgbrush(sizing.checker_size())))
         .padding(sizing.padding)
 }
