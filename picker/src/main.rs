@@ -1,7 +1,12 @@
 use std::{fmt::Display, str::FromStr};
 
-use druid::{AppDelegate, AppLauncher, Command, Cursor, Data, DelegateCtx, Env, Event, FontDescriptor, FontFamily, Lens, PlatformError, RenderContext, Selector, Target, TextAlignment, TextLayout, Widget, WidgetExt, WindowDesc, commands, keyboard_types::Key, theme, widget::ControllerHost};
 use druid::widget::{Flex, Painter};
+use druid::{
+    commands, keyboard_types::Key, theme, AppDelegate, AppLauncher,
+    Command, Cursor, Data, DelegateCtx, Env, Event, FontDescriptor, FontFamily, Lens,
+    PlatformError, RenderContext, Selector, Target, TextLayout, Widget, WidgetExt,
+    WindowDesc,
+};
 use structopt::StructOpt;
 
 mod color;
@@ -106,7 +111,9 @@ struct ColorFormat {
 }
 
 impl ColorFormat {
-    fn new(color: Color, format: Format) -> Self { Self { color, format } }
+    fn new(color: Color, format: Format) -> Self {
+        Self { color, format }
+    }
 }
 
 impl std::fmt::Display for ColorFormat {
@@ -155,16 +162,36 @@ struct Sizing {
 }
 impl Sizing {
     fn window_size(&self) -> (f64, f64) {
-        (
-            self.window_width(),
-            self.window_height(),
-        )
+        (self.window_width(), self.window_height())
     }
     fn window_width(&self) -> f64 {
-        self.padding*4.0 + self.picker_size + self.slider_size*2.0
+        // TODO: Figure out the discrepancy
+        let extra = if cfg!(target_os = "windows") {
+            14.0
+        } else {
+            0.0
+        };
+
+        self.padding * 4.0
+            + self.picker_size
+            + self.slider_size * 2.0
+            + extra
     }
     fn window_height(&self) -> f64 {
-        self.current_swatch_size + self.initial_swatch_size + self.padding*2.0 + self.picker_size + self.button_height
+        // TODO: Figure out the discrepancy
+        let extra = if cfg!(target_os = "windows") {
+            // 38.0 with the titlebar
+            8.0
+        } else {
+            0.0
+        };
+
+        self.current_swatch_size
+            + self.initial_swatch_size
+            + self.padding * 2.0
+            + self.picker_size
+            + self.button_height
+            + extra
     }
     fn checker_size(&self) -> f64 {
         self.slider_size / 4.0
@@ -175,7 +202,7 @@ fn main() -> Result<(), PlatformError> {
     let args = Args::from_args();
     let data = PickerState::new(&args);
 
-    let sizing = Sizing{
+    let sizing = Sizing {
         padding: 10.0,
         picker_size: 198.0,
         slider_size: 18.0,
@@ -184,16 +211,18 @@ fn main() -> Result<(), PlatformError> {
         button_height: 20.0,
     };
 
-    let main_window =
-        WindowDesc::new(build_root(args.clone(), sizing.clone()))
+    let main_window = WindowDesc::new(build_root(args.clone(), sizing.clone()))
         .window_size(sizing.window_size())
-        .set_position(druid::kurbo::Point::new(args.x - sizing.window_width() / 2.0, args.y))
+        .set_position(druid::kurbo::Point::new(
+            args.x - sizing.window_width() / 2.0,
+            args.y,
+        ))
         .resizable(false)
         .title("Color Picker")
         .show_titlebar(false);
 
     AppLauncher::with_window(main_window)
-        .delegate(Delegate{})
+        .delegate(Delegate {})
         .configure_env(|env, _| {
             let window_background = druid::Color::grey8(0xEB);
 
@@ -251,7 +280,7 @@ impl AppDelegate<PickerState> for Delegate {
     }
 }
 
-fn build_root(args: Args, sizing: Sizing) -> impl Fn() -> ControllerHost<Flex<PickerState>, OnDataChange<PickerState>> {
+fn build_root(args: Args, sizing: Sizing) -> impl Fn() -> Box<dyn Widget<PickerState>> {
     let checker_size = sizing.checker_size();
 
     let curr_size = args.font_size.unwrap_or(16.0).min(20.0);
@@ -301,7 +330,7 @@ fn build_root(args: Args, sizing: Sizing) -> impl Fn() -> ControllerHost<Flex<Pi
                 col
                 .with_child(picker)
                 .with_child(init_swatch)
-                .with_child(curr_swatch)
+                .with_child(curr_swatch),
         };
 
         let buttons =
@@ -311,11 +340,13 @@ fn build_root(args: Args, sizing: Sizing) -> impl Fn() -> ControllerHost<Flex<Pi
 
         col = col.with_child(buttons);
 
-        col.on_data_change(move |d| {
-            if print_continuous {
-                println!("{}", d.current_color)
-            }
-        })
+        let mut col = col.boxed();
+        if print_continuous {
+            col = col
+                .on_data_change(move |d| println!("{}", d.current_color))
+                .boxed()
+        }
+        col
     }
 }
 fn swatch(font: FontDescriptor, checker_size: f64) -> impl Widget<ColorFormat> {
@@ -326,7 +357,6 @@ fn swatch(font: FontDescriptor, checker_size: f64) -> impl Widget<ColorFormat> {
 
         let mut text: TextLayout<String> = TextLayout::new();
         text.set_font(font.clone());
-        text.set_text_alignment(TextAlignment::Center);
         text.set_text_color(druid::Color::WHITE);
         text.set_wrap_width(ctx.size().width);
         text.set_text(data.to_string());
@@ -334,10 +364,15 @@ fn swatch(font: FontDescriptor, checker_size: f64) -> impl Widget<ColorFormat> {
 
         let center = (size.to_vec2() - text.size().to_vec2()) / 2.0;
 
-        ctx.blurred_rect(text.size().to_rect().translate(center.x, center.y), 55.0, &druid::Color::BLACK.with_alpha(0.2));
+        ctx.blurred_rect(
+            text.size().to_rect().translate(center.x, center.y),
+            55.0,
+            &druid::Color::BLACK.with_alpha(0.2),
+        );
 
         text.draw(ctx, center.to_point());
-    }).background(checkered_bgbrush(checker_size))
+    })
+    .background(checkered_bgbrush(checker_size))
 }
 
 fn hsva_picker(sizing: &Sizing) -> impl Widget<Color> {
@@ -346,7 +381,11 @@ fn hsva_picker(sizing: &Sizing) -> impl Widget<Color> {
         .with_spacer(sizing.padding)
         .with_child(HuePicker::new().fix_size(sizing.slider_size, sizing.picker_size))
         .with_spacer(sizing.padding)
-        .with_child(AlphaPicker::new().fix_size(sizing.slider_size, sizing.picker_size).background(checkered_bgbrush(sizing.checker_size())))
+        .with_child(
+            AlphaPicker::new()
+                .fix_size(sizing.slider_size, sizing.picker_size)
+                .background(checkered_bgbrush(sizing.checker_size())),
+        )
         .padding(sizing.padding)
 }
 

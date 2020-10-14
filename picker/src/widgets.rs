@@ -1,10 +1,17 @@
 use std::fmt::Display;
 
 use crate::color::Color;
-use druid::{FontDescriptor, FontFamily, Key, TextAlignment, TextLayout, kurbo::Line, widget::{BackgroundBrush, Painter, prelude::*}};
 use druid::kurbo::Circle;
 use druid::piet::{ImageFormat, InterpolationMode};
-use druid::{BoxConstraints, Cursor, Data, Env, Event, EventCtx, LayoutCtx, LifeCycleCtx, PaintCtx, Point, Rect, RenderContext, Size, UpdateCtx, Widget};
+use druid::{
+    kurbo::Line,
+    widget::{prelude::*, BackgroundBrush, Painter},
+    FontDescriptor, FontFamily, Key, TextLayout,
+};
+use druid::{
+    BoxConstraints, Cursor, Data, Env, Event, EventCtx, LayoutCtx, LifeCycleCtx, PaintCtx, Point,
+    Rect, RenderContext, Size, UpdateCtx, Widget,
+};
 
 use crate::shape_util::*;
 
@@ -13,12 +20,14 @@ pub struct SatValuePicker {
 }
 
 impl SatValuePicker {
-    pub fn new() -> Self { Self { size: Size::new(0.0, 0.0) } }
+    pub fn new() -> Self {
+        Self {
+            size: Size::new(0.0, 0.0),
+        }
+    }
 
     fn set(&self, p: Point, c: &mut Color) {
-        // x is [0..1] saturation
         c.set_saturation((p.x.max(0.0).min(self.size.width) / self.size.width) as f32);
-        // y is [1..0] value
         c.set_value((1.0 - p.y.max(0.0).min(self.size.height) / self.size.height) as f32);
     }
 }
@@ -39,12 +48,12 @@ impl Widget<Color> for SatValuePicker {
             .make_image(width, height, &buf, ImageFormat::RgbaSeparate)
             .unwrap();
 
-        ctx.draw_image(
-            &image,
-            self.size.to_rect(),
-            InterpolationMode::Bilinear,
+        ctx.draw_image(&image, self.size.to_rect(), InterpolationMode::Bilinear);
+        ctx.stroke(
+            self.size.to_rounded_rect(1.0),
+            &druid::Color::BLACK.with_alpha(0.2),
+            0.5,
         );
-        ctx.stroke(self.size.to_rounded_rect(1.0), &druid::Color::BLACK.with_alpha(0.2), 0.5);
 
         let x = data.saturation() as f64 * width as f64;
         let y = (1.0 - data.value() as f64) * height as f64;
@@ -126,7 +135,11 @@ impl Widget<Color> for HuePicker {
             Rect::from_origin_size(Point::ORIGIN, self.size),
             InterpolationMode::Bilinear,
         );
-        ctx.stroke(Rect::from_origin_size(Point::ORIGIN, self.size).to_rounded_rect(1.0), &druid::Color::BLACK.with_alpha(0.2), 0.5);
+        ctx.stroke(
+            Rect::from_origin_size(Point::ORIGIN, self.size).to_rounded_rect(1.0),
+            &druid::Color::BLACK.with_alpha(0.2),
+            0.5,
+        );
 
         let y = data.hue() as f64 * height as f64;
         let size = 5.0;
@@ -180,7 +193,11 @@ pub struct AlphaPicker {
 }
 
 impl AlphaPicker {
-    pub fn new() -> Self { Self { size: Size::new(0.0, 0.0) } }
+    pub fn new() -> Self {
+        Self {
+            size: Size::new(0.0, 0.0),
+        }
+    }
 
     fn set(&self, p: Point, c: &mut Color) {
         c.set_alpha(1.0 - (p.y.max(0.0).min(self.size.height) / self.size.height) as f32);
@@ -207,7 +224,11 @@ impl Widget<Color> for AlphaPicker {
             Rect::from_origin_size(Point::ORIGIN, self.size),
             InterpolationMode::Bilinear,
         );
-        ctx.stroke(Rect::from_origin_size(Point::ORIGIN, self.size).to_rounded_rect(1.0), &druid::Color::BLACK.with_alpha(0.2), 0.5);
+        ctx.stroke(
+            Rect::from_origin_size(Point::ORIGIN, self.size).to_rounded_rect(1.0),
+            &druid::Color::BLACK.with_alpha(0.2),
+            0.5,
+        );
 
         let y = (1.0 - data.alpha()) as f64 * height as f64;
         let size = 5.0;
@@ -256,7 +277,6 @@ impl Widget<Color> for AlphaPicker {
     }
 }
 
-
 fn draw(width: usize, height: usize, get_px: impl Fn(usize, usize) -> [u8; 4]) -> Vec<u8> {
     let mut buf = vec![0; width * height * 4];
     for y in 0..height {
@@ -271,7 +291,6 @@ fn draw(width: usize, height: usize, get_px: impl Fn(usize, usize) -> [u8; 4]) -
     }
     buf
 }
-
 
 pub fn checkered_bgbrush<T>(checker_side: f64) -> BackgroundBrush<T> {
     BackgroundBrush::Painter(Painter::new(move |ctx, _data, _env| {
@@ -299,7 +318,7 @@ pub struct ToggleButton<T: Display> {
     is_last: bool,
 }
 
-impl<T: Data+Display+PartialEq> ToggleButton<T> {
+impl<T: Data + Display + PartialEq> ToggleButton<T> {
     pub fn new(variant: T, is_first: bool, is_last: bool) -> ToggleButton<T> {
         ToggleButton {
             variant,
@@ -343,8 +362,8 @@ impl<T: Data + PartialEq + Display + std::fmt::Debug> Widget<T> for ToggleButton
     fn lifecycle(&mut self, ctx: &mut LifeCycleCtx, event: &LifeCycle, data: &T, env: &Env) {
         if matches!(event, LifeCycle::WidgetAdded) {
             self.layout.set_text(self.variant.to_string());
-            self.layout.set_font(FontDescriptor::new(FontFamily::SYSTEM_UI));
-            self.layout.set_text_alignment(TextAlignment::Center);
+            self.layout
+                .set_font(FontDescriptor::new(FontFamily::SYSTEM_UI));
             self.layout.set_text_size(9.0);
             if self.is_active(data) {
                 self.layout.set_text_color(env.get(TOGGLE_ACTIVE_FG));
@@ -392,7 +411,11 @@ impl<T: Data + PartialEq + Display + std::fmt::Debug> Widget<T> for ToggleButton
             ctx.stroke(Line::new((0.0, 0.0), (0.0, size.height)), &border, 1.0);
         }
         if !self.is_last {
-            ctx.stroke(Line::new((size.width, 0.0), (size.width, size.height)), &border, 1.0);
+            ctx.stroke(
+                Line::new((size.width, 0.0), (size.width, size.height)),
+                &border,
+                1.0,
+            );
         }
 
         if !self.is_active(data) {
